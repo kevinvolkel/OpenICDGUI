@@ -1,0 +1,17 @@
+vThresNom	 0.7105
+vAGCNomThres	  0.7105
+vRefPeriod	 135.000
+vAbsBlankPeriod	  50.000
+vNoiseWindow	  40.000
+vFixedRefPeriod	  45.000
+vsAGCPeriod	  35.000
+vpAGCPeriod	  35.000
+aThresNom	 0.1039`
+aAGCNomThres	  0.1039
+aRefPeriod	 135.000
+aAbsBlankPeriod	  60.000
+aNoiseWindow	  40.000
+aFixedRefPeriod	  45.000
+asAGCPeriod	  35.000
+apAGCPeriod	  35.000
+aCCBlockPeriod	  15.000
