@@ -1,0 +1,7 @@
+﻿  Serial_Port_functions.cpp
+c:\users\kevin volkel\documents\modifyguiselectdevice\netsermuxadc\netsermuxadc\serial_port_functions.cpp(93): warning C4244: '=': conversion from 'short' to 'char', possible loss of data
+c:\users\kevin volkel\documents\modifyguiselectdevice\netsermuxadc\netsermuxadc\serial_port_functions.cpp(95): warning C4244: '=': conversion from 'short' to 'char', possible loss of data
+c:\users\kevin volkel\documents\modifyguiselectdevice\netsermuxadc\netsermuxadc\serial_port_functions.cpp(97): warning C4244: '=': conversion from 'short' to 'char', possible loss of data
+c:\users\kevin volkel\documents\modifyguiselectdevice\netsermuxadc\netsermuxadc\serial_port_functions.cpp(110): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+  NetSerMuxADC.vcxproj -> C:\Users\Kevin Volkel\Documents\ModifyGUISelectDevice\NetSerMuxADC\Debug\NetSerMuxADC.exe
+  NetSerMuxADC.vcxproj -> C:\Users\Kevin Volkel\Documents\ModifyGUISelectDevice\NetSerMuxADC\Debug\NetSerMuxADC.pdb (Partial PDB)
