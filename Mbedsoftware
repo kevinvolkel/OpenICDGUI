@@ -1,0 +1,272 @@
+#include "mbed.h"
+//Buffers for signal data
+char buffer1AS[10];
+char buffer2AS[10];
+char buffer1VS[10];
+char buffer2VS[10];
+char buffer1SS[10];
+char buffer2SS[10];
+char ADCbuf[30000];
+short ADCrec_ind=0;
+
+
+//variable to keep track of buffer to use 
+char buftrack=1;
+//variable to keep track of initiation sequence
+char inittrack=0;
+//index for buffers and variables for buffers
+char recieveind=0;
+char sendind=0;
+char startsend=0;
+char firstset=0;
+int bufsize=10;
+int sendcount=0;
+//Set up peripherals
+Serial ser(USBTX,USBRX);
+SPI spi(p11,p12,p13);
+DigitalOut cs(p21);
+DigitalOut led(p7);
+Ticker sendsignal;
+Ticker checkshock;
+Ticker timeout;
+Ticker ADC;
+InterruptIn shock(p28);
+AnalogIn ADCget(p15);
+DigitalOut arduino(p5);
+
+
+
+//Function for DAC channel 0 SPI
+void DAC0(char top, char bot){
+     cs=0;
+     spi.write(0x31);
+     spi.write(top);
+     spi.write(bot);
+     cs=1;
+    }
+    
+//Function for DAC channel 1 SPI
+void DAC1(char top, char bot){
+     cs=0;
+     spi.write(0x32);
+     spi.write(top);
+     spi.write(bot);
+     cs=1;
+    }
+    
+    
+//Function for DAC channel 2 SPI
+void DAC2(char top, char bot){
+     cs=0;
+     spi.write(0x38);
+     spi.write(top);
+     spi.write(bot);
+     cs=1;
+    }
+    
+    
+    
+//Function called when the recieving has timed out
+void timedout(void){
+    //receive timed oout during sending process
+    if(inittrack!=0)
+    {
+         // reset buffers and flags
+            sendsignal.detach();
+            recieveind=0;
+            firstset=0;
+            buftrack=1;
+            sendind=0;
+            sendcount=0;
+            inittrack=0;
+            //return back to 1V
+            DAC0(0x6B,0x1D);
+            DAC1(0x6B,0x1D);
+            DAC2(0x6B,0x1D);
+            ADCrec_ind=0; 
+    }
+    timeout.detach();
+
+}
+
+//Callback function for the ADC
+void acquireADC(void){
+    //read the ADC, 16 bit unsigned
+    if(ADCrec_ind<30000){
+    ADCbuf[ADCrec_ind]=(ADCget.read_u16())>>8;
+    ADCrec_ind++;
+    }
+}
+    
+    
+    
+    
+    
+    
+    
+
+//function to check to see if signal is still there
+void check(void){
+//check the signal to see if it is still high, if so, send signal to PC
+if(shock==1){
+    ser.putc('S');
+    }
+    checkshock.detach();
+}
+
+//function that starts a timer when an edge is sensed, avoids spin waits
+void receiveshock(void){
+checkshock.attach(&check,0.001);
+}
+
+
+
+
+
+
+
+
+//function that will be called to send data once buffer is full
+void send2DAC(void){
+    if(inittrack==3){
+        //Send data out to the 3 channels
+        DAC0(buffer1AS[sendind],buffer2AS[sendind]);
+        DAC1(buffer1VS[sendind],buffer2VS[sendind]);
+        DAC2(buffer1SS[sendind],buffer2SS[sendind]);
+        sendind++;
+        sendcount++;
+        //if sent 30000 data points then stop
+        if(sendcount!=30000){
+            //turn index over and put out message for request of more data
+            if(sendind%2==0&&sendind!=0) ser.putc('!');
+            if(sendind==bufsize) sendind=0;
+            }
+        else{
+            // reset buffers and flags
+            arduino=0;
+            ADC.detach();
+            sendsignal.detach();
+            recieveind=0;
+            firstset=0;
+            buftrack=1;
+            sendind=0;
+            sendcount=0;
+            inittrack=0;
+            //return back to 1V
+            DAC0(0x6B,0x1D);
+            DAC1(0x6B,0x1D);
+            DAC2(0x6B,0x1D);
+            //tell PC that all 30k samples for ECG were sent
+            ser.putc('D');
+            if(led==0){
+                for(short eat_time=0;eat_time<10000;eat_time++);
+                //send samples from the ADC to PC
+                for(int send_ADCind=0;send_ADCind<30000;send_ADCind++){
+                    //send 8bits
+                    ser.putc(ADCbuf[send_ADCind]);
+                    for(short eat_time=0;eat_time<10000;eat_time++);
+                }
+            }
+            ADCrec_ind=0;   
+        }
+    }
+}    
+    
+
+//Function that is called when data is recieved
+void receiveData(void){
+    char temp;
+    temp=ser.getc();
+    if(inittrack==3){
+        //receive timeout
+        timeout.detach();
+        timeout.attach(&timedout,2);
+        //decide which buffer to put data into
+        if(buftrack==1) {
+            buffer1AS[recieveind]=temp;
+        
+            }
+        else if(buftrack==2){
+            buffer2AS[recieveind]=temp;
+         
+            
+            }
+        else if(buftrack==3) {
+            buffer1VS[recieveind]=temp;
+       
+            }
+        else if(buftrack==4){
+             buffer2VS[recieveind]=temp;
+         
+            }
+        else if(buftrack==5) {
+            buffer1SS[recieveind]=temp;
+  
+            }
+        else if(buftrack==6) {
+            buffer2SS[recieveind]=temp;
+            }
+        buftrack++;
+        //if all buffers are updated then increment index
+        if(buftrack==7){
+            buftrack=1;
+            recieveind++;
+            //once buffer is full set fillset
+            if(recieveind==bufsize){
+               recieveind=0;
+               //only want to set 'startsend' after buffer is first filled
+               if(firstset==0)
+               {
+                    startsend=1;
+                    firstset=1;
+                }
+            }
+               
+        }
+    }
+    else{
+        timeout.detach();
+        timeout.attach(&timedout,2);
+        //if G and O are received in order start filling buffers, decide on Mux selection
+        if(temp=='G'&&inittrack==0) inittrack++;
+        else if(temp=='O'&&inittrack==1)inittrack++;
+        else if(temp=='0'&&inittrack==2){
+            inittrack++;
+            led=0;
+        }
+        else if(temp=='1'&&inittrack==2){
+            inittrack++;
+            led=1;
+        }
+        else inittrack=0;
+
+    }   
+}
+    
+int main(){
+ arduino=0;
+ cs=1;
+ //spi formatting
+ spi.format(8,2); // 8 bits mode 2
+ spi.frequency(30000000); //30 MHz
+ //Serial port formatting
+ ser.baud(921600);
+ ser.attach(&receiveData,Serial::RxIrq); 
+ shock.rise(&receiveshock);
+ //main loop
+ while(1){
+    //start sending values to DAC when buffer is full, send to DAC every 5 seconds and sample on ADC ever 50ms
+    if(startsend==1){
+        //send signal to the arduino
+        arduino=1;
+        sendsignal.attach(&send2DAC,0.001);
+        startsend=0;
+        if(led==0){
+            //sample ADC at every 1 ms
+            ADC.attach(&acquireADC,0.001);
+        }
+    }
+    
+  }
+    
+}
